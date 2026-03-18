@@ -10,6 +10,7 @@ import com.badlogic.gdx.graphics.g2d.Animation;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.graphics.OrthographicCamera;
+import com.badlogic.gdx.graphics.Pixmap;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -246,8 +247,6 @@ public class PlayerAnimator implements ApplicationListener {
             }
 
             // draw background tiles
-            float mapPixelW = MAP_WIDTH * TILE_SIZE;
-            float mapPixelH = MAP_HEIGHT * TILE_SIZE;
             batch.setProjectionMatrix(camera.combined);
             batch.begin();
             for (int ty = 0; ty < MAP_HEIGHT; ty++) {
