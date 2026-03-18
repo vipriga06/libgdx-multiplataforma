@@ -1,0 +1,5 @@
+Manifest-Version: 1.0
+Main-Class: com.vprieto.animation.lwjgl3.Lwjgl3Launcher
+Enable-Native-Access: ALL-UNNAMED
+Multi-Release: true
+
