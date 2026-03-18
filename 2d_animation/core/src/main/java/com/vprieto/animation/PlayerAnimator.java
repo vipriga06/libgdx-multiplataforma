@@ -17,19 +17,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Player animator that loads frames from an asset folder (e.g. `sprites/ninja`).
- *
- * Controls:
- * - Left/Right arrows or A/D: move and play run animation
- * - No input: idle animation
- *
- * To use the "yeti" sprites instead, copy your yeti frames into
- * `2d_animation/assets/sprites/yeti` and change `ASSET_FOLDER` below to "yeti".
- */
 public class PlayerAnimator implements ApplicationListener {
 
-    // Change this to "yeti" to load from assets/sprites/yeti
     private static final String ASSET_FOLDER = "sprites/ninja";
 
     private SpriteBatch batch;
@@ -41,7 +30,7 @@ public class PlayerAnimator implements ApplicationListener {
     private final List<Texture> ownedTextures = new ArrayList<>();
 
     private float x = 200f, y = 120f;
-    private float speed = 160f; // pixels per second
+    private float speed = 160f;
     private boolean facingRight = true;
 
     @Override
@@ -51,7 +40,6 @@ public class PlayerAnimator implements ApplicationListener {
 
         loadAnimationsFromFolder(ASSET_FOLDER);
 
-        // Try to set common states
         if (animations.containsKey("Idle")) currentAnim = animations.get("Idle");
         else if (animations.containsKey("idle")) currentAnim = animations.get("idle");
         else if (!animations.isEmpty()) currentAnim = animations.values().iterator().next();
@@ -65,19 +53,16 @@ public class PlayerAnimator implements ApplicationListener {
         }
 
         FileHandle[] files = dir.list();
-        // sort by name so frames are in order
         Arrays.sort(files, Comparator.comparing(FileHandle::name));
 
         Map<String, List<FileHandle>> groups = new HashMap<>();
         for (FileHandle fh : files) {
             if (!fh.name().toLowerCase().endsWith(".png")) continue;
             String name = fh.nameWithoutExtension();
-            // name patterns often like Run__000 or Idle__001 or walk_0
             String key = name;
             if (name.contains("__")) key = name.split("__")[0];
             else if (name.contains("_")) key = name.split("_")[0];
             else {
-                // fallback: try to extract leading letters
                 key = name.replaceAll("[^A-Za-z].*$", "");
                 if (key.isEmpty()) key = "anim";
             }
@@ -86,7 +71,6 @@ public class PlayerAnimator implements ApplicationListener {
 
         for (Map.Entry<String, List<FileHandle>> e : groups.entrySet()) {
             List<FileHandle> list = e.getValue();
-            // ensure sorted
             list.sort(Comparator.comparing(FileHandle::name));
             TextureRegion[] regs = new TextureRegion[list.size()];
             for (int i = 0; i < list.size(); i++) {
@@ -95,7 +79,6 @@ public class PlayerAnimator implements ApplicationListener {
                 ownedTextures.add(t);
                 regs[i] = new TextureRegion(t);
             }
-            // default frame duration; you can tune per animation if desired
             Animation<TextureRegion> anim = new Animation<TextureRegion>(0.08f, regs);
             animations.put(e.getKey(), anim);
         }
@@ -135,7 +118,6 @@ public class PlayerAnimator implements ApplicationListener {
         if (facingRight) {
             batch.draw(frame, x, y);
         } else {
-            // flip horizontally by drawing with scaleX = -1, adjusting origin
             batch.draw(frame, x + frame.getRegionWidth(), y,
                     0, 0, frame.getRegionWidth(), frame.getRegionHeight(), -1f, 1f, 0f);
         }
@@ -147,7 +129,6 @@ public class PlayerAnimator implements ApplicationListener {
             if (animations.containsKey(name)) currentAnim = animations.get(name);
             return;
         }
-        // Prefer exact match; do not override if already matching
         Animation<TextureRegion> a = animations.get(name);
         if (a != null && a != currentAnim) currentAnim = a;
     }
