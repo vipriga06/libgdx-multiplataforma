@@ -33,7 +33,7 @@ public class PlayerAnimator implements ApplicationListener {
     private final List<Texture> ownedTextures = new ArrayList<>();
 
     private float x = 200f, y = 120f;
-    private float speed = 160f;
+    private float speed = 240f;
     private boolean facingRight = true;
     private static final float SCALE = 0.5f;
 
@@ -131,18 +131,18 @@ public class PlayerAnimator implements ApplicationListener {
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
         stateTime += delta;
 
-        // Directional inputs (one tile per press)
-        boolean left = Gdx.input.isKeyJustPressed(Keys.LEFT) || Gdx.input.isKeyJustPressed(Keys.A);
-        boolean right = Gdx.input.isKeyJustPressed(Keys.RIGHT) || Gdx.input.isKeyJustPressed(Keys.D);
-        boolean up = Gdx.input.isKeyJustPressed(Keys.UP) || Gdx.input.isKeyJustPressed(Keys.W);
-        boolean downKey = Gdx.input.isKeyJustPressed(Keys.DOWN) || Gdx.input.isKeyJustPressed(Keys.S);
+        // Directional inputs (continuous while key is held)
+        boolean left = Gdx.input.isKeyPressed(Keys.LEFT) || Gdx.input.isKeyPressed(Keys.A);
+        boolean right = Gdx.input.isKeyPressed(Keys.RIGHT) || Gdx.input.isKeyPressed(Keys.D);
+        boolean up = Gdx.input.isKeyPressed(Keys.UP) || Gdx.input.isKeyPressed(Keys.W);
+        boolean downKey = Gdx.input.isKeyPressed(Keys.DOWN) || Gdx.input.isKeyPressed(Keys.S);
 
         // Actions
         boolean jump = Gdx.input.isKeyJustPressed(Keys.SPACE);
         boolean attack = Gdx.input.isKeyJustPressed(Keys.J);
         boolean thr = Gdx.input.isKeyJustPressed(Keys.K);
         boolean kun = Gdx.input.isKeyJustPressed(Keys.L);
-        boolean slide = Gdx.input.isKeyJustPressed(Keys.S);
+        boolean slide = Gdx.input.isKeyJustPressed(Keys.SHIFT_LEFT);
         boolean dead = Gdx.input.isKeyJustPressed(Keys.X);
         boolean down = Gdx.input.isKeyPressed(Keys.DOWN) || Gdx.input.isKeyPressed(Keys.C);
 
@@ -175,14 +175,20 @@ public class PlayerAnimator implements ApplicationListener {
 
         if (!actionPlaying) {
             if (!movingTile) {
-                // determine desired movement from keys or touch; allow holding keys to continue moving
-                desiredDX = 0; desiredDY = 0;
-                if (touchLeft) desiredDX = -1;
-                else if (touchRight) desiredDX = 1;
-                else if (left) desiredDX = -1;
-                else if (right) desiredDX = 1;
-                else if (up) desiredDY = 1;
-                else if (downKey) desiredDY = -1;
+                // determine desired movement from keys/touch (allow diagonals)
+                desiredDX = 0;
+                desiredDY = 0;
+
+                if (left || touchLeft) desiredDX -= 1;
+                if (right || touchRight) desiredDX += 1;
+                if (up) desiredDY += 1;
+                if (downKey) desiredDY -= 1;
+
+                // keep in [-1, 1]
+                if (desiredDX > 1) desiredDX = 1;
+                if (desiredDX < -1) desiredDX = -1;
+                if (desiredDY > 1) desiredDY = 1;
+                if (desiredDY < -1) desiredDY = -1;
 
                 if (desiredDX != 0 || desiredDY != 0) {
                     int newGX = gridX + desiredDX;
@@ -218,14 +224,18 @@ public class PlayerAnimator implements ApplicationListener {
                 float dist = (float)Math.sqrt(dx*dx + dy*dy);
                 if (dist <= speed * delta) {
                     x = targetX; y = targetY; movingTile = false; stateTime = 0f; pickAnimation("Idle");
-                    // if key still held, continue moving in same direction
-                    if (desiredDX == 0 && desiredDY == 0) {
-                        // check held keys
-                        if (Gdx.input.isKeyPressed(Keys.LEFT) || Gdx.input.isKeyPressed(Keys.A)) desiredDX = -1;
-                        else if (Gdx.input.isKeyPressed(Keys.RIGHT) || Gdx.input.isKeyPressed(Keys.D)) desiredDX = 1;
-                        else if (Gdx.input.isKeyPressed(Keys.UP) || Gdx.input.isKeyPressed(Keys.W)) desiredDY = 1;
-                        else if (Gdx.input.isKeyPressed(Keys.DOWN) || Gdx.input.isKeyPressed(Keys.S)) desiredDY = -1;
-                    }
+                    // recompute desired direction from currently held keys/touch (allow diagonals)
+                    desiredDX = 0;
+                    desiredDY = 0;
+                    if (touchLeft || Gdx.input.isKeyPressed(Keys.LEFT) || Gdx.input.isKeyPressed(Keys.A)) desiredDX -= 1;
+                    if (touchRight || Gdx.input.isKeyPressed(Keys.RIGHT) || Gdx.input.isKeyPressed(Keys.D)) desiredDX += 1;
+                    if (Gdx.input.isKeyPressed(Keys.UP) || Gdx.input.isKeyPressed(Keys.W)) desiredDY += 1;
+                    if (Gdx.input.isKeyPressed(Keys.DOWN) || Gdx.input.isKeyPressed(Keys.S)) desiredDY -= 1;
+
+                    if (desiredDX > 1) desiredDX = 1;
+                    if (desiredDX < -1) desiredDX = -1;
+                    if (desiredDY > 1) desiredDY = 1;
+                    if (desiredDY < -1) desiredDY = -1;
                     if (desiredDX != 0 || desiredDY != 0) {
                         int newGX = gridX + desiredDX;
                         int newGY = gridY + desiredDY;
@@ -246,19 +256,6 @@ public class PlayerAnimator implements ApplicationListener {
                 }
             }
 
-            // draw background tiles
-            batch.setProjectionMatrix(camera.combined);
-            batch.begin();
-            for (int ty = 0; ty < MAP_HEIGHT; ty++) {
-                for (int tx = 0; tx < MAP_WIDTH; tx++) {
-                    float px = tx * TILE_SIZE;
-                    float py = ty * TILE_SIZE;
-                    batch.setColor(((tx + ty) % 2 == 0) ? 1f : 0.9f, 1f, 1f, 1f);
-                    batch.draw(tileTexture, px, py, TILE_SIZE, TILE_SIZE);
-                }
-            }
-            batch.end();
-
             if (currentAnim == null) return;
             TextureRegion frame = currentAnim.getKeyFrame(stateTime, true);
             float w = frame.getRegionWidth() * SCALE;
@@ -277,6 +274,20 @@ public class PlayerAnimator implements ApplicationListener {
             camera.position.set(camX, camY, 0);
             camera.update();
             batch.setProjectionMatrix(camera.combined);
+
+            // draw background
+            batch.begin();
+            for (int ty = 0; ty < MAP_HEIGHT; ty++) {
+                for (int tx = 0; tx < MAP_WIDTH; tx++) {
+                    float px = tx * TILE_SIZE;
+                    float py = ty * TILE_SIZE;
+                    batch.setColor(((tx + ty) % 2 == 0) ? 1f : 0.9f, 1f, 1f, 1f);
+                    batch.draw(tileTexture, px, py, TILE_SIZE, TILE_SIZE);
+                }
+            }
+            batch.setColor(1f, 1f, 1f, 1f);
+            batch.end();
+
             batch.begin();
             if (facingRight) batch.draw(frame, x, y, w, h);
             else batch.draw(frame, x + w, y, -w, h);
@@ -284,7 +295,7 @@ public class PlayerAnimator implements ApplicationListener {
         } else {
             actionTime += delta;
             Animation<TextureRegion> a = animations.get(actionKey);
-            if (a == null) { actionPlaying = false; return; }
+            if (a == null) { actionPlaying = false; pickAnimation("Idle"); return; }
             TextureRegion frame = a.getKeyFrame(actionTime, false);
             float w = frame.getRegionWidth() * SCALE;
             float h = frame.getRegionHeight() * SCALE;
@@ -301,6 +312,20 @@ public class PlayerAnimator implements ApplicationListener {
             camera.position.set(camX, camY, 0);
             camera.update();
             batch.setProjectionMatrix(camera.combined);
+
+            // draw background during action animations too
+            batch.begin();
+            for (int ty = 0; ty < MAP_HEIGHT; ty++) {
+                for (int tx = 0; tx < MAP_WIDTH; tx++) {
+                    float px = tx * TILE_SIZE;
+                    float py = ty * TILE_SIZE;
+                    batch.setColor(((tx + ty) % 2 == 0) ? 1f : 0.9f, 1f, 1f, 1f);
+                    batch.draw(tileTexture, px, py, TILE_SIZE, TILE_SIZE);
+                }
+            }
+            batch.setColor(1f, 1f, 1f, 1f);
+            batch.end();
+
             batch.begin();
             if (facingRight) batch.draw(frame, x, y, w, h);
             else batch.draw(frame, x + w, y, -w, h);
