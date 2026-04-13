@@ -11,7 +11,6 @@ import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.Color;
-import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.Animation;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
@@ -48,7 +47,8 @@ public class Main extends ApplicationAdapter {
     private BitmapFont font;
 
     private Texture playerSheet;
-    private Animation<TextureRegion> walkAnimation;
+    private Animation<TextureRegion>[] walkAnimations;  // 4 animaciones: [UP, DOWN, LEFT, RIGHT]
+    private TextureRegion[] idleFrames;  // Idle frame para cada dirección
     private final Vector2 playerPosition = new Vector2();
     private final Vector2 movementAxis = new Vector2();
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -115,9 +115,16 @@ public class Main extends ApplicationAdapter {
 
         batch.setProjectionMatrix(viewport.getCamera().combined);
         batch.begin();
-        TextureRegion currentFrame = moving
-            ? walkAnimation.getKeyFrame(stateTime, true)
-            : walkAnimation.getKeyFrames()[0];
+        
+        // Seleccionar animación según dirección (IDLE no tiene animación)
+        int animDir = currentDirection;
+        if (currentDirection == IDLE) {
+            animDir = DOWN;  // Usar frames DOWN como fallback
+        }
+        
+        TextureRegion currentFrame = moving && currentDirection != IDLE
+            ? walkAnimations[animDir].getKeyFrame(stateTime, true)
+            : idleFrames[animDir];
         batch.draw(currentFrame, playerPosition.x, playerPosition.y, PLAYER_SIZE, PLAYER_SIZE);
 
         font.setColor(Color.WHITE);
@@ -147,36 +154,40 @@ public class Main extends ApplicationAdapter {
     }
 
     private void createPlayerAnimation() {
-        int frameCount = 4;
-        int frameSize = 32;
-        Pixmap pixmap = new Pixmap(frameCount * frameSize, frameSize, Pixmap.Format.RGBA8888);
-
-        for (int frame = 0; frame < frameCount; frame++) {
-            int x = frame * frameSize;
-
-            pixmap.setColor(new Color(0f, 0f, 0f, 0f));
-            pixmap.fillRectangle(x, 0, frameSize, frameSize);
-
-            pixmap.setColor(Color.valueOf("3D5AFE"));
-            pixmap.fillRectangle(x + 10, 9, 12, 16);
-
-            pixmap.setColor(Color.CYAN);
-            pixmap.fillRectangle(x + 11, 16, 10, 8);
-
-            pixmap.setColor(Color.SKY);
-            pixmap.fillCircle(x + 16, 26, 6);
-
-            int feetOffset = frame % 2 == 0 ? 0 : 2;
-            pixmap.setColor(Color.WHITE);
-            pixmap.fillRectangle(x + 9 - feetOffset, 4, 5, 5);
-            pixmap.fillRectangle(x + 18 + feetOffset, 4, 5, 5);
+        // Cargar spritesheet desde archivo (9 columnas x 4 filas)
+        playerSheet = new Texture(Gdx.files.internal("sprites/C3ZwL.png"));
+        
+        // Dividir spritesheet en regiones (frameWidth, frameHeight)
+        int FRAME_COLS = 9;
+        int FRAME_ROWS = 4;
+        int frameWidth = playerSheet.getWidth() / FRAME_COLS;
+        int frameHeight = playerSheet.getHeight() / FRAME_ROWS;
+        
+        TextureRegion[][] split = TextureRegion.split(playerSheet, frameWidth, frameHeight);
+        
+        // Mapeo de constantes de dirección a filas del spritesheet
+        // UP=1->row0, DOWN=2->row2, LEFT=3->row1, RIGHT=4->row3
+        int[] dirToRow = {-1, 0, 2, 1, 3};  // Índice: dirección constante, valor: fila del sprite
+        
+        // Crear animaciones para cada dirección (solo para UP, DOWN, LEFT, RIGHT)
+        walkAnimations = new Animation[5];
+        idleFrames = new TextureRegion[5];
+        
+        for (int dir = 1; dir <= 4; dir++) {  // UP, DOWN, LEFT, RIGHT
+            int row = dirToRow[dir];
+            
+            // Guardar idle frame (columna 0)
+            idleFrames[dir] = split[row][0];
+            
+            // Crear frames de caminata (columnas 1-8)
+            TextureRegion[] walkFrames = new TextureRegion[8];
+            for (int col = 1; col < FRAME_COLS; col++) {
+                walkFrames[col - 1] = split[row][col];
+            }
+            
+            // Crear animación para esta dirección
+            walkAnimations[dir] = new Animation<>(0.09f, walkFrames);
         }
-
-        playerSheet = new Texture(pixmap);
-        pixmap.dispose();
-
-        TextureRegion[] frames = TextureRegion.split(playerSheet, frameSize, frameSize)[0];
-        walkAnimation = new Animation<>(0.12f, frames);
     }
 
     private void updateControlRegions() {
